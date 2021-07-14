@@ -1,0 +1,6 @@
+/.settings
+/Debug
+/.launches/
+/targetConfigs/
+/Release/
+.DS_Store
