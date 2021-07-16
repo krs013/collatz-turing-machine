@@ -191,7 +191,7 @@ int advance() {
                 else if (symbol > 0)
                     turing = CHECK2, state = LMOVE;
                 else
-                    turing=ERROR, state=IDLE;
+                    turing=ERROR, state=READWRITE;
                 break;
             case CHECK2:
                 if (symbol < 0)
@@ -277,12 +277,27 @@ int advance() {
 
 
 int main(void) {
+    int i;
+    unsigned n = 0;
+
     WDTCTL = WDT_MDLY_32;               // 32 ms WDT interrupt
     SFRIE1 |= WDTIE;
 
-    TA0CCR0 = 256;                       // period
-    TA0CCTL0 = CCIE;                     // enable CCR0 EQU0 interrupt
-    TA0CTL = TASSEL_2 | MC_1;            // up mode, SMCLK
+    // Sample a random 16-bit number from the diff in VLO vs DCO clocks
+    TA0CTL = TASSEL_3 | MC_2;           // continuous mode, VLOCLK
+    TA0CCTL0 = CM_3 | CCIS_2 | SCS | CAP;
+    __enable_interrupt();
+    for (i=16; i>0; i--) {
+        LPM0;
+        TA0CCTL0 ^= CCIS0;
+        n <<= 1;
+        n |= TA0R & 1;
+    }
+
+    TA0CTL = TACLR;                     // reset TA0
+    TA0CCR0 = 256;                      // period
+    TA0CCTL0 = CCIE;                    // enable CCR0 EQU0 interrupt
+    TA0CTL = TASSEL_2 | MC_1;           // up mode, SMCLK
 
     P1SEL0 = 0;
     P1SEL1 = 0;
@@ -298,20 +313,21 @@ int main(void) {
     PM5CTL0 &= ~LOCKLPM5;
 
     // Sequence starts here
-    load_number(19230);
+    load_number((long) n);
 
     draw_leds();
 
     while (!advance()) {
         __enable_interrupt();
         LPM1;
+        // Would be better to sync to scan than WDT, or spin lock until blank
         __disable_interrupt();
     }
 
     __enable_interrupt();
-    int i = 80;
+    i = 80;
     while (--i)
-        LPM1;
+        LPM0;
 
     // Shutdown
     __disable_interrupt();
@@ -327,13 +343,16 @@ int main(void) {
     P1DIR = 0xFF;
     P2DIR = 0xFF;
 
-    // Not sure if this 4.5 stuff works, measures the same with plain meter
-    //PMMCTL0_H = PMMPW_H;
-    //PMMCTL0_L |= PMMREGOFF;
-    //PMMCTL0_L &= ~SVSHE;
-    //PMMCTL0_H = 0;
+    // Disable VCORE, so LPM4 becomes LPM4.5
+    PMMCTL0_H = PMMPW_H;
+    PMMCTL0_L |= PMMREGOFF;
+    PMMCTL0_L &= ~SVSHE;
+    PMMCTL0_H = 0;
 
     LPM4;
+
+    // Wakeup shouldn't be possible except by BOR, but just in case, reset
+    WDTCTL = 0;
 }
 
 
