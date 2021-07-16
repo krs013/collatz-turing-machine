@@ -280,7 +280,7 @@ int main(void) {
     WDTCTL = WDT_MDLY_32;               // 32 ms WDT interrupt
     SFRIE1 |= WDTIE;
 
-    TA0CCR0 = 500;                       // period
+    TA0CCR0 = 256;                       // period
     TA0CCTL0 = CCIE;                     // enable CCR0 EQU0 interrupt
     TA0CTL = TASSEL_2 | MC_1;            // up mode, SMCLK
 
@@ -297,16 +297,41 @@ int main(void) {
 
     PM5CTL0 &= ~LOCKLPM5;
 
-    load_number(19230);
+    // Sequence starts here
+    load_number(7);
 
     draw_leds();
 
     __enable_interrupt();
 
-    while (1) {
-        advance();
+    while (!advance())
         LPM1;
-    }
+
+    int i = 80;
+    while (--i)
+        LPM1;
+
+    // Shutdown
+    __disable_interrupt();
+
+    WDTCTL = WDTPW | WDTHOLD;
+
+    TA0CCTL0 = 0;
+    TA0CTL = 0;
+
+    P1OUT = 0x00;
+    P2OUT = 0x00;
+
+    P1DIR = 0xFF;
+    P2DIR = 0xFF;
+
+    // Not sure if this 4.5 stuff works, measures the same with plain meter
+    //PMMCTL0_H = PMMPW_H;
+    //PMMCTL0_L |= PMMREGOFF;
+    //PMMCTL0_L &= ~SVSHE;
+    //PMMCTL0_H = 0;
+
+    LPM4;
 }
 
 
