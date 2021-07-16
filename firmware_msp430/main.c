@@ -298,15 +298,17 @@ int main(void) {
     PM5CTL0 &= ~LOCKLPM5;
 
     // Sequence starts here
-    load_number(7);
+    load_number(19230);
 
     draw_leds();
 
-    __enable_interrupt();
-
-    while (!advance())
+    while (!advance()) {
+        __enable_interrupt();
         LPM1;
+        __disable_interrupt();
+    }
 
+    __enable_interrupt();
     int i = 80;
     while (--i)
         LPM1;
