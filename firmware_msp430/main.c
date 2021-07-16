@@ -162,13 +162,21 @@ void shift_right(int newled) {
 
 
 int advance() {
-    static enum led_state_t {READWRITE, LMOVE, LMOVE1, LMOVE2, RMOVE, RMOVE1, RMOVE2, IDLE} state = READWRITE;
+    static enum led_state_t {READWRITE, READWRITE1, READWRITE2, LMOVE, LMOVE1, LMOVE2, RMOVE, RMOVE1, RMOVE2, IDLE} state = READWRITE;
     static enum turing_state_t {MOVE, CHECK1, CHECK2, MUL0, MUL1, MUL2, HALT, ERROR} turing = MOVE;
 
     while (1) {
         switch (state) {
         int symbol;
         case READWRITE:
+            state = READWRITE1;
+            if (turing != MOVE)
+                break;
+        case READWRITE1:
+            state = READWRITE2;
+            if (turing != MOVE)
+                break;
+        case READWRITE2:
             symbol = get_bit(head);
             switch(turing) {
             case MOVE:
@@ -228,7 +236,10 @@ int advance() {
                 break;
             }
             update_head_leds();
-            continue;
+            if (turing==MOVE)
+                continue;
+            else
+                break;
         case LMOVE:
             shift_right(get_bit(head - 2));
             --head;
